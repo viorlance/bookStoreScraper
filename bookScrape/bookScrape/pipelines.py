@@ -8,7 +8,10 @@
 from itemadapter import ItemAdapter
 import re
 from scrapy.exceptions import DropItem
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class BookscrapePipeline:
     def process_item(self, item, spider):
@@ -61,10 +64,10 @@ class SaveToMySQLPipeline:
     
     def __init__(self):
         self.conn = mysql.connector.connect(
-            host = 'localhost',
-            user = 'root',
-            password = '1111111m',
-            database = 'books'
+            host = os.getenv("DB_HOST"),
+            user = os.getenv("DB_USER"),
+            password = os.getenv("DB_PASSWORD"),
+            database = os.getenv("DB_NAME")
         )
 
         self.cur = self.conn.cursor()
