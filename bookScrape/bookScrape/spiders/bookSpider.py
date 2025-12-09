@@ -4,12 +4,12 @@ from bookScrape.items import BookItem
 class BookspiderSpider(scrapy.Spider):
     name = "bookSpider"
     allowed_domains = ["librarius.md"]
-    start_urls = ["https://librarius.md/ro/catalog/hot-offers"]
+    start_urls = ["https://librarius.md/ro/books"]
 
 
 
     def parse(self, response):
-        books = response.css('div.book-fixed-card')
+        books = response.css('div.anyproduct-card')
         for book in books:
             book_url = book.css('a::attr(href)').get()
             yield response.follow(book_url, callback = self.parse_book)
@@ -21,8 +21,16 @@ class BookspiderSpider(scrapy.Spider):
         book['name'] = response.css('h1.main-title::text').get(default = "")
         book['img_src'] = response.css('div._book__cover img::attr(src)').get(default = "")
         book['stock'] = response.css('div.product-book-price__stock ::text').get(default='')
-        price_text = response.css('div.product-book-price__actual::text').get(default = " nu s-a gasit text")
-        book['price'] = price_text
+
+        book['price'] = response.css('#addToCartButton::attr(data-price)').get(default="")
+        discountDiv = response.css('div.product-book-price__discount')
+
+        if discountDiv:
+            book['old_price'] = discountDiv.css('del::text').get(default="")
+            book['discountProcent'] = discountDiv.css('span.discount-badge::text').get(default="")
+        else:
+            book['old_price'] = ""
+            book['discountProcent'] = ""
 
         props = {}
         props_rows = response.css('div.book-props-item')

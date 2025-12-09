@@ -17,15 +17,28 @@ class BookscrapePipeline:
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
 
-        print(f"DEBUG PRICE : {adapter['price']}")
-        price_text = adapter.get('price', '')
-        nums = re.findall(r'\d+(?:[\.,]\d+)?', price_text)
-        if len(nums) == 3:
-            adapter['old_price'] = float(nums[0].replace(',','.'))
-            adapter['discount'] = float(nums[1].replace(',','.'))
-            adapter['price'] = float(nums[2].replace(',','.'))
-        else:
-            adapter['price'] = float(nums[0].replace(',','.')) if nums else None
+        price = adapter['price']
+        old_price = adapter['old_price']
+        discount = adapter['discountProcent']
+
+        price = price.replace(',','.')
+        old_price = old_price.replace(',','.')
+        discount = discount.replace(',','.')
+
+        price = re.search(r'\b\d+(\.\d+)?\b', price)
+        old_price = re.search(r'\b\d+(\.\d+)?\b', old_price)
+        discount = re.search(r'\b\d+(\.\d+)?\b', discount)
+
+        if price:
+            price = float(price.group())
+        if old_price:
+            old_price = float(old_price.group())
+        if discount:
+            discount = float(discount.group())
+        
+        adapter['price'] = price
+        adapter['old_price'] = old_price
+        adapter['discountProcent'] = discount
 
         props = adapter.get('props', {})
         item_dict = dict(adapter.asdict())
@@ -80,7 +93,7 @@ class SaveToMySQLPipeline:
                 stock VARCHAR(20),
                 price DECIMAL(10,2),
                 old_price DECIMAL(10,2),
-                discount DECIMAL(10,2),
+                discountProcent DECIMAL(10,2),
                 PRIMARY KEY(id)
             )
         """
@@ -95,7 +108,6 @@ class SaveToMySQLPipeline:
         for key in item.keys():
             if key not in existing_columns:
                 self.cur.execute(f"ALTER TABLE books ADD COLUMN `{key}` VARCHAR(255)")
-                print(f"Adăugată coloana: {key}")
 
         item_cols = ', '.join(item.keys())
         placeholders = ', '.join(['%s'] * len(item))

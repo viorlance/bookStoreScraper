@@ -18,5 +18,5 @@ class BookItem(scrapy.Item):
     stock = scrapy.Field()
     price = scrapy.Field()
     old_price = scrapy.Field()
-    discount = scrapy.Field()
+    discountProcent = scrapy.Field()
     props = scrapy.Field()
