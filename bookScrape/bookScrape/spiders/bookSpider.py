@@ -12,7 +12,8 @@ class BookspiderSpider(scrapy.Spider):
         book_urls = response.css('div.anyproduct-card a::attr(href)').getall()
         scrapingLogger.info(f"{len(book_urls)} book urls at {response.url}")
         for book_url in book_urls:
-            yield response.follow(book_url, callback = self.parse_book)
+            if book_url:
+                yield response.follow(response.urljoin(book_url), callback=self.parse_book)
 
         next_page = response.css('li.page-item.active + li.page-item')
         if next_page:

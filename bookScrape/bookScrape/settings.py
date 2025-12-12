@@ -1,12 +1,3 @@
-# Scrapy settings for bookScrape project
-#
-# For simplicity, this file contains only settings considered important or
-# commonly used. You can find more settings consulting the documentation:
-#
-#     https://docs.scrapy.org/en/latest/topics/settings.html
-#     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-#     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
-
 BOT_NAME = "bookScrape"
 
 SPIDER_MODULES = ["bookScrape.spiders"]
@@ -18,12 +9,10 @@ ADDONS = {}
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = "bookScrape (+http://www.yourdomain.com)"
 
-# Obey robots.txt rules
 ROBOTSTXT_OBEY = False
 
-# Concurrency and throttling settings
-CONCURRENT_REQUESTS = 1
-CONCURRENT_REQUESTS_PER_DOMAIN = 1
+CONCURRENT_REQUESTS = 66
+CONCURRENT_REQUESTS_PER_DOMAIN = 66
 DOWNLOAD_DELAY = 0
 
 RETRY_ENABLED = True
@@ -60,16 +49,12 @@ DOWNLOAD_TIMEOUT = 15
 #    "scrapy.extensions.telnet.TelnetConsole": None,
 #}
 
-# Configure item pipelines
-# See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
    "bookScrape.pipelines.BookscrapePipeline": 300,
    "bookScrape.pipelines.SaveToMySQLPipeline": 400,
 
 }
 
-# Enable and configure the AutoThrottle extension (disabled by default)
-# See https://docs.scrapy.org/en/latest/topics/autothrottle.html
 AUTOTHROTTLE_ENABLED = False
 # The initial download delay
 #AUTOTHROTTLE_START_DELAY = 5
@@ -89,6 +74,5 @@ AUTOTHROTTLE_ENABLED = False
 #HTTPCACHE_IGNORE_HTTP_CODES = []
 #HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
 
-# Set settings whose default value is deprecated to a future-proof value
 FEED_EXPORT_ENCODING = "utf-8"
 DUPEFILTER_DEBUG = True
