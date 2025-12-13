@@ -3,6 +3,7 @@ import re
 from scrapy.exceptions import DropItem
 import os
 from dotenv import load_dotenv
+from configs import scrapingLogger
 
 load_dotenv()
 
@@ -10,62 +11,63 @@ class BookscrapePipeline:
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
 
-        price = adapter['price']
-        old_price = adapter['old_price']
-        discount = adapter['discountProcent']
+        adapter["name"] = adapter.get("name", "").strip()
 
-        price = price.replace(',','.')
-        old_price = old_price.replace(',','.')
-        discount = discount.replace(',','.')
+        img = adapter.get("img_src", "")
+        if img and img.startswith("/"):
+            adapter["img_src"] = "https://librarius.md" + img
+        elif not img:
+            adapter["img_src"] = None
 
-        price = re.search(r'\b\d+(\.\d+)?\b', price)
-        old_price = re.search(r'\b\d+(\.\d+)?\b', old_price)
-        discount = re.search(r'\b\d+(\.\d+)?\b', discount)
+        adapter["stock"] = adapter.get("stock", "").strip()
 
-        if price:
-            price = float(price.group())
-        if old_price:
-            old_price = float(old_price.group())
-        if discount:
-            discount = float(discount.group())
-        
-        adapter['price'] = price
-        adapter['old_price'] = old_price
-        adapter['discountProcent'] = discount
+        adapter['price'] = self.parse_price(adapter.get('price'))
+        adapter['old_price'] = self.parse_price(adapter.get('old_price'))
+        adapter['discount_procent'] = self.parse_price(adapter.get('discount_procent'))
 
-        props = adapter.get('props', {})
-        item_dict = dict(adapter.asdict())
-        adapter = ItemAdapter(item_dict)
-        for key,value in props.items():
-            if key and value:
-                clean_key = key.strip().replace(' ','_')
-                adapter[clean_key] = value
-        adapter.pop('props', None)
-
-        for key in adapter.keys():
-            adapter[key] = self.clean(adapter[key])
 
         try:
-            if adapter['img_src'][0] == '/':
-                adapter['img_src'] = 'https://librarius.md' + adapter["img_src"]
-        except:
-            adapter['img_src'] = None
+            adapter["properties"] = {
+                k.strip(): v.strip()
+                for k, v in adapter.get("properties", {}).items()
+            }
+        except Exception:
+            scrapingLogger.exception(
+                "Drop item %s while processing properties",
+                adapter.get("url")
+            )
+            raise DropItem()
 
-        adapter['id'] = int(adapter.pop('Cod_produs', None))
-        if not adapter.get('id'):
-            raise DropItem(f"Item fără ID eliminat: {adapter.get('url')}")
+        adapter["id"] = adapter.get("properties", {}).pop("Cod produs", None)
+        if not adapter["id"]:
+            scrapingLogger.warning(
+                "Drop item %s invalid id",
+                adapter.get("url")
+            )
+            raise DropItem()
+        
+        try:
+            adapter["id"] = int(adapter["id"])
+        except (TypeError, ValueError):
+            scrapingLogger.warning(
+                "Drop item %s invalid id",
+                adapter.get("url")
+            )
+            raise DropItem()
 
-        return item_dict
-    
+        return item
 
-    def clean(self, value):
-        if isinstance(value, str):
-            return value.strip()
-        else:
-            return value
+
+    def parse_price(self, value):
+        if not value:
+            return None
+        value = value.replace(',', '.')
+        m = re.search(r'\b\d+(\.\d+)?\b', value)
+        return float(m.group()) if m else None
+
 
 import mysql.connector
-
+import json
 class SaveToMySQLPipeline:
     
     def __init__(self):
@@ -73,7 +75,8 @@ class SaveToMySQLPipeline:
             host = os.getenv("DB_HOST"),
             user = os.getenv("DB_USER"),
             password = os.getenv("DB_PASSWORD"),
-            database = os.getenv("DB_NAME")
+            database = os.getenv("DB_NAME"),
+            autocommit = True
         )
 
         self.cur = self.conn.cursor()
@@ -86,7 +89,8 @@ class SaveToMySQLPipeline:
                 stock VARCHAR(20),
                 price DECIMAL(10,2),
                 old_price DECIMAL(10,2),
-                discountProcent DECIMAL(10,2),
+                discount_procent DECIMAL(10,2),
+                properties JSON,
                 PRIMARY KEY(id)
             )
         """
@@ -95,24 +99,36 @@ class SaveToMySQLPipeline:
         self.conn.commit()
 
     def process_item(self, item, spider):
+        adapter = ItemAdapter(item)
 
-        self.cur.execute("SHOW COLUMNS FROM books")
-        existing_columns = {row[0] for row in self.cur.fetchall()}
-        for key in item.keys():
-            if key not in existing_columns:
-                self.cur.execute(f"ALTER TABLE books ADD COLUMN `{key}` VARCHAR(255)")
+        self.cur.execute("""
+            INSERT INTO books (id, url, name, img_src, stock, price, old_price, discount_procent, properties)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                url = VALUES(url),
+                name = VALUES(name),
+                img_src = VALUES(img_src),
+                stock = VALUES(stock),
+                price = VALUES(price),
+                old_price = VALUES(old_price),
+                discount_procent = VALUES(discount_procent),
+                properties = VALUES(properties)
+        """,
+            (
+                adapter.get("id"),
+                adapter.get("url"),
+                adapter.get("name"),
+                adapter.get("img_src"),
+                adapter.get("stock"),
+                adapter.get("price"),
+                adapter.get("old_price"),
+                adapter.get("discount_procent"),
+                json.dumps(adapter.get("properties", {})),
+            )
+        )
 
-        item_cols = ', '.join(item.keys())
-        placeholders = ', '.join(['%s'] * len(item))
-        update_clause = ", ".join([f"{k}=VALUES({k})" for k in item.keys() if k != "id"])
-        sql = f"""
-            INSERT INTO books ({item_cols}) VALUES ({placeholders})
-            ON DUPLICATE KEY UPDATE {update_clause}
-        """
-        self.cur.execute(sql, list(item.values()))
-
-        self.conn.commit()
         return item
+        
     
     def close_spider(self, spider):
         self.cur.close()

@@ -3,7 +3,7 @@ from bookScrape.items import BookItem
 from configs import scrapingLogger
 class BookspiderSpider(scrapy.Spider):
     name = "bookSpider"
-    allowed_domains = ["librarius.md"]
+    allowed_domains = ["librarius.md", "www.librarius.md"]
     start_urls = ["https://librarius.md/ro/books/page/1"]
 
 
@@ -28,25 +28,26 @@ class BookspiderSpider(scrapy.Spider):
         book['url'] = response.url
         book['name'] = response.css('h1.main-title::text').get(default = "")
         book['img_src'] = response.css('div._book__cover img::attr(src)').get(default = "")
-        book['stock'] = response.css('div.product-book-price__stock ::text').get(default='')
+        book['stock'] = response.css('div.product-book-price__stock ::text').get(default="")
 
         book['price'] = response.css('#addToCartButton::attr(data-price)').get(default="")
         discountDiv = response.css('div.product-book-price__discount')
 
         if discountDiv:
             book['old_price'] = discountDiv.css('del::text').get(default="")
-            book['discountProcent'] = discountDiv.css('span.discount-badge::text').get(default="")
+            book['discount_procent'] = discountDiv.css('span.discount-badge::text').get(default="")
         else:
             book['old_price'] = ""
-            book['discountProcent'] = ""
+            book['discount_procent'] = ""
 
-        props = {}
-        props_rows = response.css('div.book-props-item')
-        for row in props_rows:
-            key = row.css('div.book-prop-name::text').get(default = '')
-            value = row.css('div.book-prop-value::text').get(default = '')
+        properties = {}
+        properties_rows = response.css('div.book-props-item')
+        for row in properties_rows:
+            key = row.css('div.book-prop-name *::text').get(default = "")
+            value = row.css('div.book-prop-value *::text').get(default = "")
             if key and value:
-                props[key] = value
-        book['props'] = props
+                properties[key] = value
+                
+        book['properties'] = properties
 
         yield book
