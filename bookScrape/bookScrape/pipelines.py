@@ -56,6 +56,18 @@ class BookscrapePipeline:
                 adapter.get("url")
             )
             raise DropItem()
+        
+        availability = {}
+        for key,value in adapter.get("availability", {}).items():
+            shopId = re.search(r"\b\d+\b", key)
+            stock = value.strip()
+            if shopId and stock:
+                availability[int(shopId.group())] = stock
+            else:
+                scrapingLogger.warning(f"Can't process book's availability, processing shopId: {key}, processing stock: {value}, book: {adapter.get('url')}")
+        
+        adapter["availability"] = availability
+
 
         return item
 
@@ -95,7 +107,16 @@ class SaveBookToMySQLPipeline:
         """
         )
 
-        self.conn.commit()
+        self.cur.execute("""
+            CREATE TABLE IF NOT EXISTS books_shops(
+                bookId INT NOT NULL,
+                shopId INT NOT NULL,
+                stock VARCHAR(20),
+                PRIMARY KEY(bookId, shopId),
+                FOREIGN KEY (bookId) REFERENCES books(id),
+                FOREIGN KEY (shopId) REFERENCES shops(id)
+            )
+        """)
 
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
@@ -126,13 +147,24 @@ class SaveBookToMySQLPipeline:
             )
         )
 
+        availabilities = adapter.get("availability", {})
+        if availabilities:
+
+            values = [(adapter["id"], shopId, stock) for shopId, stock in availabilities.items()]
+
+            self.cur.executemany("""
+                INSERT INTO books_shops (bookId, shopId, stock)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    stock = VALUES(stock)
+            """, values)
+
         return item
         
     
     def close_spider(self, spider):
         self.cur.close()
         self.conn.close()
-
 
 class ShopscrapePipeline:
     def process_item(self, item, spider):
@@ -158,3 +190,50 @@ class ShopscrapePipeline:
 
 
         return item
+    
+class SaveShopToMySQLPipeline:
+    def __init__(self):
+        self.conn = mysql.connector.connect(
+            host = os.getenv("DB_HOST"),
+            user = os.getenv("DB_USER"),
+            password = os.getenv("DB_PASSWORD"),
+            database = os.getenv("DB_NAME"),
+            autocommit = True   
+        )
+
+        self.cur = self.conn.cursor()
+        self.cur.execute("""
+            CREATE TABLE IF NOT EXISTS shops(
+                id INT NOT NULL,
+                address VARCHAR(255),
+                phone VARCHAR(50),
+                schedule VARCHAR(255),
+                PRIMARY KEY(id)
+            )
+        """)
+
+
+    def process_item(self, item, spider):
+        adapter = ItemAdapter(item)
+
+        self.cur.execute("""
+            INSERT INTO shops (id, address, phone, schedule)
+            VALUES(%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                address = VALUES(address),
+                phone = VALUES(phone),
+                schedule = VALUES(schedule)
+        """,(
+                adapter.get("id"),
+                adapter.get("address"),
+                adapter.get("phone"),
+                adapter.get("schedule")
+            )
+        )
+
+        return item
+
+
+    def close_spider(self, spider):
+        self.cur.close()
+        self.conn.close()

@@ -56,4 +56,16 @@ class BookspiderSpider(scrapy.Spider):
 
         book['properties'] = properties
 
+        availabilityRows = response.css("table.table.table-striped tbody tr")
+        availability = {}
+
+        for row in availabilityRows:
+            idTd = row.xpath("./td[1]")
+            key = idTd.xpath("string(.)").get()
+            value = row.xpath("./td[3]/text()").get()
+            if key and value:
+                availability[key.strip()] = value
+
+        book["availability"] = availability
+
         yield book

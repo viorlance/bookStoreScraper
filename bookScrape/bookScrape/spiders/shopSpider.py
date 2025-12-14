@@ -8,7 +8,8 @@ class ShopspiderSpider(scrapy.Spider):
 
     custom_settings = {
         "ITEM_PIPELINES": {
-            "bookScrape.pipelines.ShopscrapePipeline": 300
+            "bookScrape.pipelines.ShopscrapePipeline": 300,
+            "bookScrape.pipelines.SaveShopToMySQLPipeline": 400 
         }
     }
 
