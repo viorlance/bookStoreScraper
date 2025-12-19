@@ -1,5 +1,7 @@
 import random
 import requests
+from scrapy.http import HtmlResponse
+from configs import scrapingLogger
 
 
 class ScrapeOpsHeadersMiddleware:
@@ -45,3 +47,43 @@ class ScrapeOpsHeadersMiddleware:
         headers = random.choice(self.headers_pool)
         for k,v in headers.items():
             request.headers[k] = v
+
+
+class ScrapeOpsProxyFallbackMiddleware:
+
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        api_key = crawler.settings.get("SCRAPEOPS_API_KEY")
+
+        if not api_key:
+            raise RuntimeError("SCRAPEOPS_API_KEY missing")
+
+        return cls(api_key)
+
+    def process_response(self, request, response, spider):
+        if response.status not in (403,429):
+            return response
+
+        scrapingLogger.warning(f"Blocked ({response.status}), retry via scrapeops: {request.url}")
+
+        r = requests.get(
+            url='https://proxy.scrapeops.io/v1/',
+            params={
+                'api_key': self.api_key,
+                'url': request.url, 
+            },
+            timeout = 20
+        )
+
+        if r.status_code != 200:
+            return response
+
+        return HtmlResponse(
+            url = request.url,
+            body = r.content,
+            encoding = "utf-8",
+            request = request
+        )

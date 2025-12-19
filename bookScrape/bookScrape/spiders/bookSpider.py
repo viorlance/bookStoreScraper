@@ -1,6 +1,5 @@
 import scrapy
 from bookScrape.items import BookItem
-from configs import scrapingLogger
 class BookspiderSpider(scrapy.Spider):
     name = "bookSpider"
     allowed_domains = ["librarius.md", "www.librarius.md"]
