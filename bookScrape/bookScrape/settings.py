@@ -1,13 +1,11 @@
+import os
+
 BOT_NAME = "bookScrape"
 
 SPIDER_MODULES = ["bookScrape.spiders"]
 NEWSPIDER_MODULE = "bookScrape.spiders"
 
 ADDONS = {}
-
-
-# Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = "bookScrape (+http://www.yourdomain.com)"
 
 ROBOTSTXT_OBEY = False
 
@@ -20,58 +18,36 @@ RETRY_ENABLED = True
 RETRY_TIMES = 2
 DOWNLOAD_TIMEOUT = 15
 
-# Disable cookies (enabled by default)
-#COOKIES_ENABLED = False
+COOKIES_ENABLED = False
+TELNETCONSOLE_ENABLED = False
 
-# Disable Telnet Console (enabled by default)
-#TELNETCONSOLE_ENABLED = False
+SPIDER_MIDDLEWARES = {}
+DOWNLOADER_MIDDLEWARES = {
+    "bookScrape.middlewares.ScrapeOpsHeadersMiddleware": 300
+}
 
-# Override the default request headers:
-#DEFAULT_REQUEST_HEADERS = {
-#    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-#    "Accept-Language": "en",
-#}
-
-# Enable or disable spider middlewares
-# See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
-#SPIDER_MIDDLEWARES = {
-#    "bookScrape.middlewares.BookscrapeSpiderMiddleware": 543,
-#}
-
-# Enable or disable downloader middlewares
-# See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-#DOWNLOADER_MIDDLEWARES = {
-#    "bookScrape.middlewares.BookscrapeDownloaderMiddleware": 543,
-#}
-
-# Enable or disable extensions
-# See https://docs.scrapy.org/en/latest/topics/extensions.html
-#EXTENSIONS = {
-#    "scrapy.extensions.telnet.TelnetConsole": None,
-#}
+EXTENSIONS = {}
 
 ITEM_PIPELINES = {}
 
-# The initial download delay
-#AUTOTHROTTLE_START_DELAY = 5
-# The maximum download delay to be set in case of high latencies
-#AUTOTHROTTLE_MAX_DELAY = 60
-# The average number of requests Scrapy should be sending in parallel to
-# each remote server
-#AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
-# Enable showing throttling stats for every response received:
-#AUTOTHROTTLE_DEBUG = False
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_START_DELAY = 2
+AUTOTHROTTLE_MAX_DELAY = 15
+AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
+AUTOTHROTTLE_DEBUG = False
 
-# Enable and configure HTTP caching (disabled by default)
-# See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings
-#HTTPCACHE_ENABLED = True
-#HTTPCACHE_EXPIRATION_SECS = 0
-#HTTPCACHE_DIR = "httpcache"
-#HTTPCACHE_IGNORE_HTTP_CODES = []
-#HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
+HTTPCACHE_ENABLED = False
 
 FEED_EXPORT_ENCODING = "utf-8"
 DUPEFILTER_DEBUG = True
+
+SCRAPEOPS_NUM_RESULTS = 100
+SCRAPEOPS_API_KEY = os.getenv("SCRAPEOPS_API_KEY")
+
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
 
 #LOG_LEVEL = 'WARNING'
 #LOG_FILE = "scrapy_errors.log"

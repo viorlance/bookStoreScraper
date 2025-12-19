@@ -1,14 +1,9 @@
 from itemadapter import ItemAdapter
 import re
 from scrapy.exceptions import DropItem
-import os
-from dotenv import load_dotenv
 from configs import scrapingLogger
 import mysql.connector
 import json
-
-load_dotenv()
-
 class BookscrapePipeline:
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
@@ -83,19 +78,19 @@ class BookscrapePipeline:
         return float(m.group()) if m else None
 
 class SaveBookToMySQLPipeline:
-    
-    def __init__(self):
-        self.conn = mysql.connector.connect(
-            host = os.getenv("DB_HOST"),
-            user = os.getenv("DB_USER"),
-            password = os.getenv("DB_PASSWORD"),
-            database = os.getenv("DB_NAME"),
-            autocommit = True
-        )
 
+    def __init__(self, host, user, password, database):
+        self.conn = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database,
+            autocommit=True
+        )
         self.cur = self.conn.cursor()
+
         self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS books(
+            CREATE TABLE IF NOT EXISTS books (
                 id INT NOT NULL,
                 url TEXT,
                 name VARCHAR(255),
@@ -107,11 +102,10 @@ class SaveBookToMySQLPipeline:
                 properties JSON,
                 PRIMARY KEY(id)
             )
-        """
-        )
+        """)
 
         self.cur.execute("""
-            CREATE TABLE IF NOT EXISTS books_shops(
+            CREATE TABLE IF NOT EXISTS books_shops (
                 bookId INT NOT NULL,
                 shopId INT NOT NULL,
                 stock VARCHAR(20),
@@ -120,6 +114,19 @@ class SaveBookToMySQLPipeline:
                 FOREIGN KEY (shopId) REFERENCES shops(id)
             )
         """)
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        for key in ("DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"):
+            if not crawler.settings.get(key):
+                raise RuntimeError(f"Missing setting {key}")
+
+        return cls(
+            host=crawler.settings["DB_HOST"],
+            user=crawler.settings["DB_USER"],
+            password=crawler.settings["DB_PASSWORD"],
+            database=crawler.settings["DB_NAME"]
+        )
 
     def process_item(self, item, spider):
         adapter = ItemAdapter(item)
@@ -136,25 +143,21 @@ class SaveBookToMySQLPipeline:
                 old_price = VALUES(old_price),
                 discount_procent = VALUES(discount_procent),
                 properties = VALUES(properties)
-        """,
-            (
-                adapter.get("id"),
-                adapter.get("url"),
-                adapter.get("name"),
-                adapter.get("img_src"),
-                adapter.get("stock"),
-                adapter.get("price"),
-                adapter.get("old_price"),
-                adapter.get("discount_procent"),
-                json.dumps(adapter.get("properties", {})),
-            )
-        )
+        """, (
+            adapter.get("id"),
+            adapter.get("url"),
+            adapter.get("name"),
+            adapter.get("img_src"),
+            adapter.get("stock"),
+            adapter.get("price"),
+            adapter.get("old_price"),
+            adapter.get("discount_procent"),
+            json.dumps(adapter.get("properties", {})),
+        ))
 
         availabilities = adapter.get("availability", {})
         if availabilities:
-
             values = [(adapter["id"], shopId, stock) for shopId, stock in availabilities.items()]
-
             self.cur.executemany("""
                 INSERT INTO books_shops (bookId, shopId, stock)
                 VALUES (%s, %s, %s)
@@ -163,8 +166,7 @@ class SaveBookToMySQLPipeline:
             """, values)
 
         return item
-        
-    
+
     def close_spider(self, spider):
         self.cur.close()
         self.conn.close()
@@ -195,12 +197,12 @@ class ShopscrapePipeline:
         return item
     
 class SaveShopToMySQLPipeline:
-    def __init__(self):
+    def __init__(self, host, user, password, database):
         self.conn = mysql.connector.connect(
-            host = os.getenv("DB_HOST"),
-            user = os.getenv("DB_USER"),
-            password = os.getenv("DB_PASSWORD"),
-            database = os.getenv("DB_NAME"),
+            host = host,
+            user = user,
+            password = password,
+            database = database,
             autocommit = True   
         )
 
@@ -214,6 +216,20 @@ class SaveShopToMySQLPipeline:
                 PRIMARY KEY(id)
             )
         """)
+
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        for key in ("DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"):
+            if not crawler.settings.get(key):
+                raise RuntimeError(f"Missing setting {key}")
+
+        return cls(
+            host=crawler.settings["DB_HOST"],
+            user=crawler.settings["DB_USER"],
+            password=crawler.settings["DB_PASSWORD"],
+            database=crawler.settings["DB_NAME"]
+        )
 
 
     def process_item(self, item, spider):
